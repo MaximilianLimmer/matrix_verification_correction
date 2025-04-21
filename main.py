@@ -5,11 +5,13 @@ from flint import fmpz_poly
 
 import approximation_testing
 import approximation_testing_two
+import bench_new
 import correction_algorithmica
 import mm_verification
 import test_cases
 from approximation import compute_summary
 import pyperf
+import math
 
 from approximation_testing_two import run_group_approximation_test
 from benchmarks import correction_c_test, benchmarks_verification, benchmarks_verification_band_matrices, \
@@ -21,6 +23,13 @@ from os_correct_zero_test import test_os_correct_zero, test_os_correct_zero_dumm
 
 if __name__ == "__main__":
 
-    test_os_correct_zero_dummy()
+    t_fn_const = lambda size: 2
+    t_fn_double = lambda size: size * 2
+    t_fn_log = lambda size: max(1, int(math.log2(size)))
+    t_fn_sqrt = lambda size: int(math.sqrt(size))
+    t_fn_n = lambda size: size // 2
+
+    # Example run:
+    bench_new.benchmark_all(c=1, t_fn=t_fn_n)
 
 

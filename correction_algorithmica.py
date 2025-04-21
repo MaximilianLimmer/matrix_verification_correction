@@ -2,22 +2,35 @@ import math
 import numpy as np
 import torch
 import random
+import time
 from numpy.ma.core import array
 
 import number_theory
 
 
 def correct_speedUp(A, B, C, c, k, primes):
+    timings = {}
+    start = time.perf_counter()
 
     n = A.shape[0]
 
     #primes = primes_correction(c, math.sqrt(k), n)
     C_first = correct(A, B, C, c, math.sqrt(k), primes)
+    timings["first_iteration"] = time.perf_counter() - start
+
+    tranposition_start = time.perf_counter()
     B_transposed = B.T
     A_transposed = A.T
     C_transposed = C_first.T
+    timings["matrix_tranposed"] = time.perf_counter() - tranposition_start
+
+    second_iteration = time.perf_counter()
     C_final = correct(B_transposed, A_transposed, C_transposed, c, math.sqrt(k), primes)
-    return C_final.T
+    timings["second_iteration"] = time.perf_counter() - second_iteration
+
+    total_time = time.perf_counter() - start
+
+    return C_final.T, total_time, timings
 
 def primes_correction(c, k, n):
     T = (c * k * math.log(n, 2)) / (math.log(math.log(n, 2)))
