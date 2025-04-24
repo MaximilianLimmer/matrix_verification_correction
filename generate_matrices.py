@@ -31,6 +31,63 @@ def load_and_save_as_torch(matrix_path, save_path, dtype=torch.float32):
     print(f"Matrix successfully loaded, converted, and saved to {save_path}")
     return tensor
 
+def create_file_structure_with_rank1_support(
+    matrix_types,
+    sizes,
+    max_value,
+    dtype,
+    sparsity,
+    nonzero_fn_map=None  # Optional: dict from matrix_type to custom nonzero_fn
+):
+    """
+    Extended version to support 'rank1_sqrt(n)_nonzeroes' type which ensures t nonzeros in AB.
+
+    Args:
+        matrix_types (List[str]): List of matrix types.
+        sizes (List[int]): List of matrix sizes.
+        max_value (int): Max value of matrix entries.
+        dtype (torch.dtype): PyTorch dtype.
+        sparsity (float): For standard sparse generation or nonzero scaling.
+        nonzero_fn_map (Dict[str, Callable[[int], int]]): Custom nonzero functions per matrix_type.
+    """
+    if not os.path.exists("data_test_int"):
+        os.makedirs("data_test_int")
+
+    for matrix_type in matrix_types:
+        print(f"Generating {matrix_type} matrices...")
+        for size in sizes:
+            for u in range(2):  # Two instances per size
+                instance_dir = os.path.join("data_test_int", matrix_type, f"u_{u}")
+                os.makedirs(instance_dir, exist_ok=True)
+
+                if matrix_type == "rank1_sqrt(n)_nonzeroes":
+                    nonzero_fn = (
+                        nonzero_fn_map.get(matrix_type)
+                        if nonzero_fn_map and matrix_type in nonzero_fn_map
+                        else lambda n: int(sparsity * n)  # default
+                    )
+                    A, B, C = generate_rank1_product_controlled(
+                        n=size,
+                        max_value=max_value,
+                        dtype=dtype,
+                        nonzero_fn=nonzero_fn
+                    )
+                    save_matrices(
+                        A, B, C,
+                        save_dir=instance_dir,
+                        name_A=f"A_size_{size}.pt",
+                        name_B=f"B_size_{size}.pt",
+                        name_C=f"C_size_{size}.pt"
+                    )
+                else:
+                    generate_and_save_matrices(
+                        size, size, max_value, dtype,
+                        matrix_type, sparsity,
+                        instance_dir,
+                        f"A_size_{size}.pt",
+                        f"B_size_{size}.pt",
+                        f"C_size_{size}.pt"
+                    )
 
 def create_file_structure_for_test_data(
         matrix_types,
@@ -84,20 +141,12 @@ def generate_and_save_matrices(
     name_B: str,
     name_C: str
 ):
-    """
-    Generates and saves matrices
-    :param n: row size of matrix
-    :param l: column size of matrix
-    :param max_value: max value of matrix
-    :param dtype: data_test_int type of matrix
-    :param matrix_type: kind of matrix
-    :param sparsity: relative sparsity level
-    :param save_dir: directory in which the matrix gets saved
-    :param name_A: name of matrix A
-    :param name_B: name of matrix B
-    :param name_C: name of matrix C
-    """
-    A, B, C = generate_pair_solution_matrices(n, l, max_value, dtype, matrix_type, sparsity)
+    if matrix_type == "rank1_sqrt(n)_nonzeroes":
+        nonzero_fn = lambda n: int(sparsity * n)  # or any other logic you want
+        A, B, C = generate_rank1_product_controlled(n, max_value, dtype, nonzero_fn)
+    else:
+        A, B, C = generate_pair_solution_matrices(n, l, max_value, dtype, matrix_type, sparsity)
+
     save_matrices(A, B, C, save_dir, name_A, name_B, name_C)
 
 
@@ -127,6 +176,51 @@ def save_matrices(
     torch.save(A, os.path.join(save_dir, name_A))
     torch.save(B, os.path.join(save_dir, name_B))
     torch.save(C, os.path.join(save_dir, name_C))
+
+
+def generate_rank1_product_controlled(
+    n: int,
+    max_value: int,
+    dtype: torch.dtype,
+    nonzero_fn,
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    Generates matrices A and B such that AB has exactly t = nonzero_fn(n) nonzero entries,
+    each created via independent rank-1 contributions.
+
+    Args:
+        n (int): Size of square matrices.
+        max_value (int): Maximum value for entries in A and B.
+        dtype (torch.dtype): Desired tensor type.
+        nonzero_fn (Callable[[int], int]): Function returning desired number of nonzeros in AB.
+
+    Returns:
+        Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: A, B, and AB = C.
+    """
+    t = min(nonzero_fn(n), n * n)
+    A = torch.zeros((n, n), dtype=dtype)
+    B = torch.zeros((n, n), dtype=dtype)
+    C = torch.zeros((n, n), dtype=dtype)
+
+    used_positions = set()
+
+    for _ in range(t):
+        while True:
+            i = random.randint(0, n - 1)
+            j = random.randint(0, n - 1)
+            if (i, j) not in used_positions:
+                used_positions.add((i, j))
+                break
+
+        k = random.randint(0, n - 1)
+        a = random.randint(1, max_value)
+        b = random.randint(1, max_value)
+
+        A[i, k] = a
+        B[k, j] = b
+        C[i, j] = a * b  # Since we know exactly what's being added
+
+    return A, B, C
 
 
 def existing_solution_and_errors(
@@ -159,6 +253,7 @@ def solutions_for_existing(
     :return: calculated matrix
     """
     return torch.matmul(A, B)
+
 
 def generate_pair_matrices(
     n: int,

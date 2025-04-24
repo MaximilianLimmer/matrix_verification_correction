@@ -10,11 +10,13 @@ from mm_verification import calculate_primes
 def test_os_correct_zero(n, l, max_value, dtype, matrix_type, sparsity, t):
 
     A, B, C = generate_pair_solution_matrices(n, l, max_value, dtype, matrix_type, sparsity)
-    prime = calculate_primes(n ,1)
+    prime = calculate_primes((n* n) + 1 ,1)
+    print(prime)
     solution = os_correct_zero.os_matrix_multiplication_mod_p(A, B, t, prime[0].item())
-
-    print(C)
-    assert torch.equal(C, solution)
+    C_sol = solution[:, -n:]
+    print(C_sol)
+    print(solution)
+    assert torch.equal(C, C_sol)
 
 def test_os_correct_zero_dummy():
 

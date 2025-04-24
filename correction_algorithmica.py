@@ -4,18 +4,31 @@ import torch
 import random
 import time
 from numpy.ma.core import array
+from tensorboard.manager import start
 
 import number_theory
 
 
 def correct_speedUp(A, B, C, c, k, primes):
     timings = {}
+    iteration_timings = {}
+
+    if len(primes) == 0:
+        start_prime = time.perf_counter()
+        n = np.shape(A)[0]
+        primes = primes_correction(c, math.sqrt(k), n)
+        timings["prime_calculation"] = time.perf_counter() - start_prime
+
+
+    iteration_timings.setdefault("column_arrangement", 0.0)
+    iteration_timings.setdefault("vector_calculation", 0.0)
+    iteration_timings.setdefault("matrix_vector_calc", 0.0)
+
     start = time.perf_counter()
 
-    n = A.shape[0]
 
     #primes = primes_correction(c, math.sqrt(k), n)
-    C_first = correct(A, B, C, c, math.sqrt(k), primes)
+    C_first, iteration_timings = correct(A, B, C, c, math.sqrt(k), primes, iteration_timings)
     timings["first_iteration"] = time.perf_counter() - start
 
     tranposition_start = time.perf_counter()
@@ -25,52 +38,55 @@ def correct_speedUp(A, B, C, c, k, primes):
     timings["matrix_tranposed"] = time.perf_counter() - tranposition_start
 
     second_iteration = time.perf_counter()
-    C_final = correct(B_transposed, A_transposed, C_transposed, c, math.sqrt(k), primes)
+    C_final, iteration_timings = correct(B_transposed, A_transposed, C_transposed, c, math.sqrt(k), primes, iteration_timings)
     timings["second_iteration"] = time.perf_counter() - second_iteration
 
     total_time = time.perf_counter() - start
 
-    return C_final.T, total_time, timings
+
+    return C_final.T, total_time, timings, iteration_timings
 
 def primes_correction(c, k, n):
     T = (c * k * math.log(n, 2)) / (math.log(math.log(n, 2)))
-    print("T" + str(T))
     return  number_theory.generate_first_t_primes(T)
 
 
 
-def correct(A, B, C, c, k, primes):
+def correct(A, B, C, c, k, primes, iteration_timings):
     n = np.shape(A)[0]
-    C_here = C.clone()
+    #C_here = C.clone()
 
     for p in primes:
 
+        column_arrangement = time.perf_counter()
         v_vectors = construct_matrices(n, p)
+        iteration_timings["column_arrangement"] += time.perf_counter() - column_arrangement
 
         for i in range(p):
 
+            vector_time = time.perf_counter()
             B_v = torch.matmul(B, v_vectors[i])
-
             left_side = torch.matmul(A, B_v)
-            right_side = torch.matmul(C_here, v_vectors[i].to_dense())
+            right_side = torch.matmul(C, v_vectors[i])
+            iteration_timings["vector_calculation"] += time.perf_counter() - vector_time
+
+            correction_time = time.perf_counter()
+            mask = left_side != right_side
+            C[mask] = torch.matmul(A[mask], B)
+            iteration_timings["matrix_vector_calc"] += time.perf_counter() - correction_time
 
 
-            for j in range(len(left_side)):
-                if left_side[j] != right_side[j]:
-                    C_here[j] = torch.matmul(A[j:j + 1], B)
-
-    return C_here
+    return C, iteration_timings
 
 
 
 def construct_matrices(n, p):
-    v_vectors = [torch.zeros(n, dtype=torch.int64) for _ in range(p)]
-
+    v_vectors = torch.zeros((p, n), dtype=torch.int32)
     for j in range(n):
-        index = j % p
-        v_vectors[index][j] = 1
+        v_vectors[j % p, j] = 1
+    return [v_vectors[i] for i in range(p)]
 
-    return v_vectors
+
 
 
 def is_error_isolated(indices, primes):

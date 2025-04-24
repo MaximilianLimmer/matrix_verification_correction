@@ -36,6 +36,26 @@ def calculate_single_row(row, omegas, t, p):
     return output
 
 
+def construct_polynomials(A, B, l, p):
+    q_polys = []
+    r_polys = []
+    for k in range(l):
+        q_polys.append(fmpz_mod_poly(A[k], fmpz_mod_poly_ctx(p)))
+        r_polys.append(fmpz_mod_poly(B[k], fmpz_mod_poly_ctx(p)))
+    return q_polys, r_polys
+
+def evaluate_polynomials(q_polys, r_polys, omega_first, omega_second, t):
+    q_values = [[] for _ in range(t)]
+    r_values = [[] for _ in range(t)]
+    for q_k, r_k in zip(q_polys, r_polys):
+        q = zero_check(q_k, omega_first, t)
+        r = zero_check(r_k, omega_second, t)
+        for i in range(t):
+            q_values[i].append(q[i])
+            r_values[i].append(r[i])
+    return q_values, r_values
+
+
 # TODO study effect of introduction of start value
 def construct_evaluate(A, B, l, omega_first, omega_second, start, t, p):
 
@@ -97,8 +117,12 @@ def all_zeroes(A, B, p, w, t, n, l):
     omega_first, omega_second = compute_omega(p, w, t, l)
     timings["omega"] = time.perf_counter() - t1
     t2 = time.perf_counter()
-    q_values, r_values = construct_evaluate(A, B, l, omega_first, omega_second, 0, t, p)
-    timings["construct_eval"] = time.perf_counter() - t2
+    q_polys, r_polys = construct_polynomials(A, B, l, p)
+    timings["construct_poly"] = time.perf_counter() - t2
+
+    t6 = time.perf_counter()
+    q_values, r_values = evaluate_polynomials(q_polys, r_polys, omega_first, omega_second, t)
+    timings["FME"] = time.perf_counter() - t6
 
     t3 = time.perf_counter()
     output = compute_polynomial(q_values, r_values)

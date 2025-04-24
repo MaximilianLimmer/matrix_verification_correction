@@ -197,6 +197,9 @@ def os_matrix_multiplication_mod_p(A, B, number_of_non_zeroes, prime):
     :return: calculated matrix product of AB, so C
     """
 
+    # Taking time for benchmarking
+
+
     # Determine amount of rows of A
     global n
     n = A.shape[0]
@@ -251,15 +254,17 @@ def os_matrix_multiplication_mod_p(A, B, number_of_non_zeroes, prime):
     if verify_test_values(matrix_product_AB):
         L.append(matrix_product_AB)
 
+
     # while there is no interval with a nonzero
     while L:
+
+
 
         # take the smallest matrix product currently
         smallest_matrix_product = L[-1]
 
         # find the indices of one non-zero pair in the smallest matrix product
         i_global, j_global = find_nonzero(smallest_matrix_product, smallest_matrix_product.row_start, smallest_matrix_product.col_start)
-
 
         # calculate the non-zero element for the index i, j for the matrix C and by this for A_n
         # We move it by n because C got concordinate onto A
