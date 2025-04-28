@@ -1,7 +1,9 @@
 from PIL.DdsImagePlugin import item1
 
+import mm_verification
 import os_correct_zero
-from generate_matrices import generate_pair_solution_matrices, generate_pair_matrices
+from generate_matrices import generate_pair_solution_matrices, generate_pair_matrices, \
+    generate_pair_solution_error_matrices
 import torch
 
 from mm_verification import calculate_primes
@@ -9,14 +11,20 @@ from mm_verification import calculate_primes
 
 def test_os_correct_zero(n, l, max_value, dtype, matrix_type, sparsity, t):
 
-    A, B, C = generate_pair_solution_matrices(n, l, max_value, dtype, matrix_type, sparsity)
-    prime = calculate_primes((n* n) + 1 ,1)
+    A, B, C, C_error = generate_pair_solution_error_matrices(n, l, max_value, dtype, matrix_type, sparsity, 2, True)
+    A_n, B_n = mm_verification.change_to_verification_form_torch(A, B, C_error)
+    assert not torch.equal(C, C_error)
+    new = torch.matmul(A_n, B_n)
+    prime = calculate_primes(n + 1 ,1)
     print(prime)
-    solution = os_correct_zero.os_matrix_multiplication_mod_p(A, B, t, prime[0].item())
+    solution, total_time, timings = os_correct_zero.os_matrix_multiplication_mod_p(A_n, B_n, t, prime[0].item())
+    print(total_time)
+    print(timings)
     C_sol = solution[:, -n:]
     print(C_sol)
     print(solution)
-    assert torch.equal(C, C_sol)
+    print(solution.shape)
+    assert torch.equal(new, C_sol)
 
 def test_os_correct_zero_dummy():
 

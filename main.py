@@ -2,6 +2,7 @@ import torch
 import os
 import math
 from flint import fmpz_poly
+from numpy.ma.core import max_val
 from tensorboard.compat.tensorflow_stub.dtypes import int32
 
 import approximation_testing
@@ -76,13 +77,20 @@ def generate_matrices_nonzeroes():
 
 
 if __name__ == "__main__":
-    n = 32
-    l = 32
-    max_value = 32
-    dtype = torch.int64
+
+
+    n = 512
+    l = 512
+    max_value = n
+    dtype = torch.int32
     matrix_type = "random"
-    sparsity = 0.5
-    t = 32*32
+    sparsity = 1
+    c = 1
+    t = 10
+
+    test_os_correct_zero(n, l, max_value, dtype, matrix_type, sparsity, t)
 
 
-    os_correct_zero_test.test_os_correct_zero(n, l, max_value, dtype, matrix_type, sparsity, t)
+    A, B, C, C_error = generate_matrices.generate_pair_solution_error_matrices(n, 2*n, n, torch.int32, "random", 1, 5, True)
+
+    print(mm_verification.verification(A, B, C_error, c, t, [], []))

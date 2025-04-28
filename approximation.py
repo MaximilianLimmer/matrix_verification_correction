@@ -1,9 +1,12 @@
+import time
+
 import torch
 import math
 import numpy as np
 from numpy.ma.extras import column_stack
 import heapq
 
+from sympy.benchmarks.bench_meijerint import timings
 
 
 def reconstruct_approximation_matrix(S, n):
@@ -21,6 +24,12 @@ def reconstruct_approximation_matrix(S, n):
 
 def compute_summary(A, B, b):
 
+    t0 = time.perf_counter()
+    timings = {}
+    timings["sorting"] = 0
+    timings["find_b_plus_largest_elements"] = 0
+    timings["positional_sort"] = 0
+    timings["merge"] = 0
 
     n = A.size(0)
     row_order = ordered_list(A.T, n)
@@ -31,21 +40,39 @@ def compute_summary(A, B, b):
 
         u = row_order[i*n:(i+1)*n]
         v = column_order[i*n:(i+1)*n]
+
+        t1 = time.perf_counter()
         u_sorted = sorted(u, reverse=True)
         v_sorted = sorted(v, reverse=True)
+        timings["positional_sort"] += time.perf_counter() - t1
+
+        t2 = time.perf_counter()
         L_and_plus_one= KMaxCombinations(u_sorted, v_sorted , b + 1)
+        timings["find_b_plus_largest_elements"] += time.perf_counter() -t2
+
         c = L_and_plus_one.pop()[0]
         L = L_and_plus_one
         L = decrease_by_c(L, c, 1)
+
+        t3 = time.perf_counter()
         L = positional_sort(L, n)
+        timings["positional_sort"] += time.perf_counter() - t3
+
+        t4 = time.perf_counter()
         S = merge_lists(S, L)
         if len(S) > b+1:
             S = sorted(S, reverse=True)
             x = S[b+1][0]
             S = decrease_by_c(S[:b], x, 1)
+        timings["merge"] += time.perf_counter() - t4
+
+        t5 = time.perf_counter()
         positional_sort(S, n)
+        timings["positional_sort"] += time.perf_counter() - t5
+
         L = []
-    return S
+    total_time = time.perf_counter() - t0
+    return S, total_time, timings
 
 
 def merge_lists(S, L):

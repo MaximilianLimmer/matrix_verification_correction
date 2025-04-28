@@ -1,3 +1,5 @@
+import time
+
 import torch
 from numpy.ma.core import nonzero
 from numpy.matrixlib.defmatrix import matrix
@@ -198,11 +200,13 @@ def os_matrix_multiplication_mod_p(A, B, number_of_non_zeroes, prime):
     """
 
     # Taking time for benchmarking
-
+    t0 = time.perf_counter()
+    timings = {}
 
     # Determine amount of rows of A
     global n
     n = A.shape[0]
+    a_l = A.shape[1]
 
     # Set the global variables for the prime and calculate and set the primitive root and number of non-zeroes
     global t
@@ -241,11 +245,12 @@ def os_matrix_multiplication_mod_p(A, B, number_of_non_zeroes, prime):
 
     # Verify that verification form has the correct dimensions
 
-    assert n * 2 == l
+    #assert n * 2 == l
 
     # create matrixProduct of whole matrix
     matrix_product_AB = MatrixProduct(None, A_list, B_list, t, 0, 0)
 
+    t1 = time.perf_counter()
 
     # calculate test values for global matrix
     compute_test_values(matrix_product_AB)
@@ -254,29 +259,45 @@ def os_matrix_multiplication_mod_p(A, B, number_of_non_zeroes, prime):
     if verify_test_values(matrix_product_AB):
         L.append(matrix_product_AB)
 
+    timings["first_check"] = time.perf_counter() - t1
+    timings["find_nonzero"] = 0
+    timings["calculate_nonzero"] = 0
+    timings["update_values_and_list"] = 0
 
     # while there is no interval with a nonzero
     while L:
 
-
-
         # take the smallest matrix product currently
         smallest_matrix_product = L[-1]
+
+        t2 = time.perf_counter()
 
         # find the indices of one non-zero pair in the smallest matrix product
         i_global, j_global = find_nonzero(smallest_matrix_product, smallest_matrix_product.row_start, smallest_matrix_product.col_start)
 
+        timings["find_nonzero"] += time.perf_counter() - t2
+
+        t3 = time.perf_counter()
+
         # calculate the non-zero element for the index i, j for the matrix C and by this for A_n
         # We move it by n because C got concordinate onto A
-        A_n, value = calculate_nonzero(A, B, A_n, i_global, j_global, i_global, j_global + n)
+
+        A_n, value = calculate_nonzero(A, B, A_n, i_global, j_global, i_global, j_global + a_l)
+
+        timings["calculate_nonzero"] += time.perf_counter() - t3
+
+        t4 = time.perf_counter()
 
         update_values_and_list(matrix_product_AB, value.item(), i_global, j_global)
+
+        timings["update_values_and_list"] += time.perf_counter() - t4
 
         # Debugging step not part of the algorithm
         for e in L:
             verify_test_values(e)
 
-    return A_n
+    total_time = time.perf_counter() - t0
+    return A_n, total_time, timings
 
 
 def calculate_nonzero(A, B, C, i_a, j_b, i_c, j_c):

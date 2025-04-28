@@ -5,6 +5,7 @@ import torch
 import time
 from functools import wraps
 from flint import fmpz_poly
+from sympy.benchmarks.bench_meijerint import timings
 
 from number_theory import find_primes_for_task
 
@@ -19,11 +20,26 @@ def approximation(A, B, b):
     :param b: amount of element which get approximated
     :return: approximation of matrix product
     """
+    timings = {}
+    t0 = time.perf_counter()
+
     n = A.shape[0]
     l = A.shape[1]
+
+    t1 = time.perf_counter()
     P = find_primes_for_task(b, n * l)
-    Q, G, L = compute_group(A, B, P, n, l)
-    return check_candidates(A, B, G, Q, P, L, n)
+    timings["find_primes"] = time.perf_counter() - t1
+
+    t2 = time.perf_counter()
+    Q, G, L, timing_group = compute_group(A, B, P, n, l)
+    timings["compute_group"] = time.perf_counter() - t2
+
+    t3 = time.perf_counter()
+    output, timing_check = check_candidates(A, B, G, Q, P, L, n)
+    timings["check_candidates"] = time.perf_counter() - t3
+
+    timings["total_time"] = time.perf_counter() - t0
+    return output, timings, timing_group, timing_check
 
 
 
@@ -40,11 +56,12 @@ def check_candidates(A, B, G, Q, P, L, n):
     :param n: size of matrix
     :return: Q and G
     """
-    output = []
+    timing = {}
     output_c = torch.zeros((n, n))
     X = Q.shape[0]
     Y = Q.shape[1]
     K = torch.zeros((X, Y, L))
+    t0 = time.perf_counter()
     for j in range(len(P)):
         p = P[j]
         for m in range(p):
@@ -55,16 +72,25 @@ def check_candidates(A, B, G, Q, P, L, n):
 
             K[j][m] = bit_list
     indices_list = []
+    timing["construct_bit_list"] = time.perf_counter() - t0
+
+    t1 = time.perf_counter()
+    timing["construct_indices"] = 0
+    timing["calculate_values"] = 0
     for j in range(len(P)):
         p = P[j]
         for m in range(p):
+            t1 = time.perf_counter()
             i_index, j_index = find_index(K[j][m], int(L/2))
-
             indices_list.append((i_index, j_index))
+            timing["construct_indices"] += time.perf_counter() - t1
+
+            t2 = time.perf_counter()
             output_c = check_value_torch(A, B, output_c, i_index, j_index, 100)
+            timing["calculate_values"] += time.perf_counter() - t2
 
     #unique_tuples = list(dict.fromkeys(indices_list))
-    return output_c
+    return output_c, timing
 
 
 
@@ -162,16 +188,29 @@ def compute_group(A, B, primes, n, l):
 
         """
 
+    timing = {}
+    timing["FFT_Modular_Convolution"] = 0
+    timing["FFT_Modular_Convolution_Update"] = 0
+    timing["nullification_of_vectors"] = 0
+    timing["calculate_bitmask"] = 0
+    timing["apply_bitmask"] = 0
     L, Q, G = construct_data_structures(primes, n)
+
+    t0 = time.perf_counter()
     bitmask = compute_bitmasks(int(L//2), n)
+    timing["calculate_bitmask"] = time.perf_counter() - t0
 
     for i in range(l):
         a = A[:, i]
         b = B[i, :]
 
         for j in range(len(primes)):
+
             p = primes[j]
+
+            t1 = time.perf_counter()
             coe_p_ab_dash = compute_polynomial_contribution(a, b, p)
+            timing["FFT_Modular_Convolution"] += time.perf_counter() - t1
 
             for m in range(p):
                 Q[j][m] = Q[j][m].item() + int(coe_p_ab_dash[m])
@@ -180,20 +219,30 @@ def compute_group(A, B, primes, n, l):
                 #a_mod = a.clone()
                 #b_mod = b.clone()
 
+
                 if k < L/2:
+                    t2 = time.perf_counter()
                     a_coeffs = apply_bitmask(a, bitmask[k])
+                    timing["apply_bitmask"] += time.perf_counter() - t2
+
+                    t3 = time.perf_counter()
                     coe_p_ab_dash_b = compute_polynomial_contribution(a_coeffs, b, p)
+                    timing["FFT_Modular_Convolution_Update"] += time.perf_counter() - t3
 
 
                 else:
+                    t4 = time.perf_counter()
                     b_coeffs = apply_bitmask(b, bitmask[k - int(L//2)])
-                    coe_p_ab_dash_b = compute_polynomial_contribution(a, b_coeffs, p)
+                    timing["apply_bitmask"] += time.perf_counter() - t4
 
+                    t5 = time.perf_counter()
+                    coe_p_ab_dash_b = compute_polynomial_contribution(a, b_coeffs, p)
+                    timing["FFT_Modular_Convolution_Update"] += time.perf_counter() - t5
 
                 for m in range(p):
                     G[j][m][k] = G[j][m][k].item() + int(coe_p_ab_dash_b[m])
 
-    return Q, G, L
+    return Q, G, L, timing
 
 
 def construct_data_structures(primes, n):
