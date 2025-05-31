@@ -1,20 +1,36 @@
 from fme_correct_verify import mm_verification
 from fme_correct_verify.mm_verification import calculate_primes, change_to_verification_form_torch
 from fme_correct_verify.os_correct_zero import os_matrix_multiplication_mod_p
+from fme_correct_verify.os_correct_zero import os_matrix_multiplication_mod_p
+from correction_gas.correction_algorithmica import correct_speedUp
+from correction_gas.correction_algorithmica import correct_speedUp
+from approx.approximation import compute_summary, reconstruct_approximation_matrix  # adjust import
+
+from fme_correct_verify.freivald import freivalds, naive_matrix_multiplication  #
+import re
+from fme_correct_verify.os_correct_zero import os_matrix_multiplication_mod_p  # Adjust the import as needed
+import os
+import torch
+import csv
+from approx.approximationGroup import approximation  # your approximation function
+import generate_matrices
+import math
+import time
+import os, csv, torch
+from fme_correct_verify.mm_verification import verification  # replace as needed
+
 
 
 def benchmark_group_testing_mm(output_file="bench_group_testing_verified_b_log(n).csv"):
-    import os
-    import torch
-    import csv
-    from approx.approximationGroup import approximation  # your approximation function
-    import generate_matrices
-    import math
+
 
     BASE_DIR = "../data_test_int"
     already = "band"
     # Updated TYPES list without the 'rank1' type
-    TYPES = [ "random", "random", "random"
+    TYPES = [ "band", "diagonal", "identity", "nilpotent", "ones",
+              "permutation", "random", "random_max_value_n", "random_signed",
+              "sparse_0.1", "sparse_signed", "symmetric", "toeplitz", "triangular",
+              "vandermond_poly_n^{2}"
 
     ]
 
@@ -103,13 +119,15 @@ def benchmark_group_testing_mm(output_file="bench_group_testing_verified_b_log(n
 
 
 def benchmark_all(c, t_fn, primes=[], omegas=[], output_file="delete.csv"):
-    import os, csv, torch
-    from fme_correct_verify.mm_verification import verification  # replace as needed
+
 
     BASE_DIR = "../data_test_int"
-    TYPES = [
-        "sparse_0.1_max_value_size",
-    ]
+    TYPES = ["band", "diagonal", "identity", "nilpotent", "ones",
+             "permutation", "random", "random_max_value_n", "random_signed",
+             "sparse_0.1", "sparse_signed", "symmetric", "toeplitz", "triangular",
+             "vandermond_poly_n^{2}"
+
+             ]
     US = ["u_0", "u_1"]
 
     os.makedirs(os.path.dirname(output_file) or ".", exist_ok=True)
@@ -169,14 +187,16 @@ def benchmark_all(c, t_fn, primes=[], omegas=[], output_file="delete.csv"):
     print(f"Benchmarking complete. Results saved to {output_file}")
 
 
-import time
 
 
 def benchmark_torch(output_file="benchmark_torch_matmul_int.csv", use_allclose=False, atol=1e-6):
     BASE_DIR = "../data_test_int"
-    TYPES = [
-        "random"
-    ]
+    TYPES = ["band", "diagonal", "identity", "nilpotent", "ones",
+             "permutation", "random", "random_max_value_n", "random_signed",
+             "sparse_0.1", "sparse_signed", "symmetric", "toeplitz", "triangular",
+             "vandermond_poly_n^{2}"
+
+             ]
     US = ["u_0", "u_1"]
     results = []
 
@@ -218,15 +238,15 @@ def benchmark_torch(output_file="benchmark_torch_matmul_int.csv", use_allclose=F
 
 
 def benchmark_os(c, t_fn, primes=[], omegas=[], output_file="bench_os_random_4096.csv"):
-    import os
-    import torch
-    import re
-    import csv
-    import math
-    from fme_correct_verify.os_correct_zero import os_matrix_multiplication_mod_p  # Adjust the import as needed
+
 
     BASE_DIR = "../data_test_int"
-    TYPES = ["random", "random"]  # Only one type now
+    TYPES = ["band", "diagonal", "identity", "nilpotent", "ones",
+             "permutation", "random", "random_max_value_n", "random_signed",
+             "sparse_0.1", "sparse_signed", "symmetric", "toeplitz", "triangular",
+             "vandermond_poly_n^{2}"
+
+             ]  # Only one type now
     US = ["u_0", "u_1"]
     RESULTS = []
 
@@ -293,13 +313,13 @@ def benchmark_os(c, t_fn, primes=[], omegas=[], output_file="bench_os_random_409
     print(f"Benchmarking complete. Results saved to {output_file}")
 
 def benchmark_all_os_mm(c, t_fn, primes=[], output_file="bench_os_mm_all_zero_t=n_triangular.csv"):
-    import os
-    import torch
-    import csv
-    from fme_correct_verify.os_correct_zero import os_matrix_multiplication_mod_p  # replace path if needed
+
 
     BASE_DIR = "../data_test_int"
-    TYPES = ["random"
+    TYPES = ["band", "diagonal", "identity", "nilpotent", "ones",
+             "permutation", "random", "random_max_value_n", "random_signed",
+             "sparse_0.1", "sparse_signed", "symmetric", "toeplitz", "triangular",
+             "vandermond_poly_n^{2}"
 
              ]
     US = ["u_0", "u_1"]
@@ -362,14 +382,13 @@ def benchmark_all_os_mm(c, t_fn, primes=[], output_file="bench_os_mm_all_zero_t=
 
 
 def benchmark_correct_speedUp(c, k_fn, output_file="bench_correct_sqrt_big.csv"):
-    import os
-    import torch
-    import csv
-    from correction_gas.correction_algorithmica import correct_speedUp  # Replace with actual module
+
 
     BASE_DIR = "../data_test_int"
-    TYPES = ["random"
-
+    TYPES = ["band", "diagonal", "identity", "nilpotent", "ones",
+             "permutation", "random", "random_max_value_n", "random_signed",
+             "sparse_0.1", "sparse_signed", "symmetric", "toeplitz", "triangular",
+             "vandermond_poly_n^{2}"
 
              ]
     US = ["u_0", "u_1"]
@@ -441,15 +460,13 @@ def benchmark_correct_speedUp(c, k_fn, output_file="bench_correct_sqrt_big.csv")
 
 
 def benchmark_freivalds(k, output_file="bench_freivalds_20.csv"):
-    import os
-    import torch
-    import re
-    import csv
-    import time
-    from fme_correct_verify.freivald import freivalds  #
+
 
     BASE_DIR = "../data_test_int"
-    TYPES = ["random", "random", "random", "random", "random"
+    TYPES = ["band", "diagonal", "identity", "nilpotent", "ones",
+             "permutation", "random", "random_max_value_n", "random_signed",
+             "sparse_0.1", "sparse_signed", "symmetric", "toeplitz", "triangular",
+             "vandermond_poly_n^{2}"
 
              ]
     US = ["u_0", "u_1"]
@@ -498,13 +515,16 @@ def benchmark_freivalds(k, output_file="bench_freivalds_20.csv"):
     print(f"Benchmarking complete. Results saved to {output_file}")
 
 def benchmark_approximation(b_fn, output_file="bench_approximation_n.csv"):
-    import os
-    import torch
-    import csv
-    from approx.approximation import compute_summary, reconstruct_approximation_matrix  # adjust import
+
+
 
     BASE_DIR = "../data_test_int"
-    TYPES = ["random", "random"]
+    TYPES = ["band", "diagonal", "identity", "nilpotent", "ones",
+             "permutation", "random", "random_max_value_n", "random_signed",
+             "sparse_0.1", "sparse_signed", "symmetric", "toeplitz", "triangular",
+             "vandermond_poly_n^{2}"
+
+             ]
     US = ["u_0", "u_1"]
     RESULTS = []
 
@@ -577,8 +597,7 @@ def benchmark_approximation(b_fn, output_file="bench_approximation_n.csv"):
 
 
 def benchmark_all_real(c, t_fn, primes=[], omegas=[], output_file="verification_real_world_t=n.csv"):
-    import os, csv, torch
-    from fme_correct_verify.mm_verification import verification  # replace with your actual module
+
 
     BASE_DIR = "../matrices"  # points to your downloaded matrix dir
     os.makedirs(os.path.dirname(output_file) or ".", exist_ok=True)
@@ -637,10 +656,6 @@ def benchmark_all_real(c, t_fn, primes=[], omegas=[], output_file="verification_
     print(f"Benchmarking complete. Results saved to {output_file}")
 
 def benchmark_matmul_real(output_file="bench_matmul_real.csv"):
-    import os
-    import torch
-    import csv
-    import time
 
     BASE_DIR = "../matrices"
     RESULTS = []
@@ -693,12 +708,6 @@ def benchmark_matmul_real(output_file="bench_matmul_real.csv"):
 
     print(f"Benchmarking complete. Results saved to {output_file}")
 
-
-import os
-import torch
-import csv
-import generate_matrices
-from correction_gas.correction_algorithmica import correct_speedUp
 
 def benchmark_correct_speedUp_real(c, k_fn, output_file="bench_float_log=t.csv"):
     BASE_DIR = "../suit_sparse_real"
@@ -795,10 +804,7 @@ def cut_to_power_of_2(tensor: torch.Tensor) -> torch.Tensor:
     return tensor[:new_rows, :new_cols]
 
 def benchmark_os_real(c, k_fn, output_file="bench_os_(n)real.csv"):
-    import os
-    import torch
-    import csv
-    import generate_matrices
+
 
 
     BASE_DIR = "../matrices"
@@ -906,11 +912,7 @@ def benchmark_os_real(c, k_fn, output_file="bench_os_(n)real.csv"):
 
 
 def benchmark_naive(output_file="bench_naive.csv"):
-    import os
-    import torch
-    import csv
-    import time
-    from fme_correct_verify.freivald import naive_matrix_multiplication  #
+
 
     BASE_DIR = "../data_test_int"
     TYPES = [
