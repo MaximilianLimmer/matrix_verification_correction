@@ -4,6 +4,9 @@ import os
 from scipy.io import mmread
 from typing import Tuple
 
+from fme_correct_verify import mm_verification
+
+
 def load_and_save_as_torch(matrix_path, save_path, dtype=torch.float32):
     """
     Load a matrix from a .mtx file, convert it to a dense PyTorch tensor, and save it.
@@ -19,7 +22,7 @@ def load_and_save_as_torch(matrix_path, save_path, dtype=torch.float32):
     # Step 1: Load the matrix from the .mtx file
     matrix = mmread(matrix_path)
 
-    # Step 2: Convert the sparse matrix to a dense NumPy array
+    # Step 2: Convert the sparse_0.1 matrix to a dense NumPy array
     dense_matrix = matrix.toarray()
 
     # Step 3: Convert the NumPy array to a PyTorch tensor
@@ -35,36 +38,30 @@ def create_file_structure_with_rank1_support(
     matrix_types,
     sizes,
     max_value,
-    dtype,
-    sparsity,
-    nonzero_fn_map=None  # Optional: dict from matrix_type to custom nonzero_fn
+    dtype=torch.float32,  # Enforced default to float
+    sparsity=0.1,
+    nonzero_fn_map=None
 ):
     """
-    Extended version to support 'rank1_sqrt(n)_nonzeroes' type which ensures t nonzeros in AB.
-
-    Args:
-        matrix_types (List[str]): List of matrix types.
-        sizes (List[int]): List of matrix sizes.
-        max_value (int): Max value of matrix entries.
-        dtype (torch.dtype): PyTorch dtype.
-        sparsity (float): For standard sparse generation or nonzero scaling.
-        nonzero_fn_map (Dict[str, Callable[[int], int]]): Custom nonzero functions per matrix_type.
+    Generates matrices of specified types and sizes with float dtype.
     """
-    if not os.path.exists("data_test_int"):
-        os.makedirs("data_test_int")
+    if not os.path.exists("data_test_float"):
+        os.makedirs("data_test_float")
 
     for matrix_type in matrix_types:
         print(f"Generating {matrix_type} matrices...")
         for size in sizes:
+            print(f"  Size {size}")
             for u in range(2):  # Two instances per size
                 instance_dir = os.path.join("data_test_int", matrix_type, f"u_{u}")
                 os.makedirs(instance_dir, exist_ok=True)
 
-                if matrix_type == "rank1_sqrt(n)_nonzeroes":
+                # Rank-1 controlled case
+                if matrix_type.startswith("rank1_"):
                     nonzero_fn = (
                         nonzero_fn_map.get(matrix_type)
                         if nonzero_fn_map and matrix_type in nonzero_fn_map
-                        else lambda n: int(sparsity * n)  # default
+                        else lambda n: int(sparsity * n)
                     )
                     A, B, C = generate_rank1_product_controlled(
                         n=size,
@@ -72,62 +69,25 @@ def create_file_structure_with_rank1_support(
                         dtype=dtype,
                         nonzero_fn=nonzero_fn
                     )
-                    save_matrices(
-                        A, B, C,
-                        save_dir=instance_dir,
-                        name_A=f"A_size_{size}.pt",
-                        name_B=f"B_size_{size}.pt",
-                        name_C=f"C_size_{size}.pt"
-                    )
                 else:
-                    generate_and_save_matrices(
-                        size, size, max_value, dtype,
-                        matrix_type, sparsity,
-                        instance_dir,
-                        f"A_size_{size}.pt",
-                        f"B_size_{size}.pt",
-                        f"C_size_{size}.pt"
+                    A, B, C = generate_pair_solution_matrices(
+                        n=size,
+                        l=size,
+                        max_value=max_value,
+                        dtype=dtype,
+                        matrix_type=matrix_type,
+                        sparsity=sparsity
                     )
 
-def create_file_structure_for_test_data(
-        matrix_types,
-        sizes,
-        max_value,
-        dtype,
-        sparsity
-):
-    """
-    Method which creates file structure and generates and loads matrices for a list of types nad sizes
-    :param matrix_types: kind of matrices which get generated
-    :param sizes: sizes of matrices which get created
-    :param max_value: max_value
-    :param dtype: data_type
-    :param sparsity: sparsity
-    """
-    if not os.path.exists("data_test_int"):
-        os.makedirs("data_test_int")
-
-    for matrix_type in matrix_types:
-        print(f"Generating {matrix_type} matrices...")
-        for size in sizes:
-            for u in range(2):  # Generate 2 instances of each size
-                # Create subdirectory for each matrix type and instance
-                instance_dir = os.path.join("data_test_int", matrix_type, f"u_{u}")
-                os.makedirs(instance_dir, exist_ok=True)
-
-                # Generate and save matrices
-                generate_and_save_matrices(
-                    size,
-                    size,
-                    max_value,
-                    dtype,
-                    matrix_type,
-                    sparsity,
-                    instance_dir,
-                    f"A_size_{size}.pt",
-                    f"B_size_{size}.pt",
-                    f"C_size_{size}.pt"
+                # Save
+                save_matrices(
+                    A, B, C,
+                    save_dir=instance_dir,
+                    name_A=f"A_size_{size}.pt",
+                    name_B=f"B_size_{size}.pt",
+                    name_C=f"C_size_{size}.pt"
                 )
+
 
 def generate_and_save_matrices(
     n: int,
@@ -260,7 +220,7 @@ def generate_pair_matrices(
     l: int,
     max_value: int,
     dtype: torch.dtype,
-    matrix_type: str = 'random',
+    matrix_type: str,
     sparsity: float = 0.1,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
@@ -271,8 +231,8 @@ def generate_pair_matrices(
         l (int): Number of columns for matrix A and rows for matrix B.
         max_value (int): Maximum value for the matrix elements.
         dtype (torch.dtype): Data type of the matrices.
-        matrix_type (str): Type of matrix to generate. Options: 'random', 'sparse', 'toeplitz', 'diagonal', 'gaussian'.
-        sparsity (float): Sparsity level for sparse matrices (default: 0.1).
+        matrix_type (str): Type of matrix to generate. Options: 'random', 'sparse_0.1', 'toeplitz', 'diagonal', 'gaussian'.
+        sparsity (float): Sparsity level for sparse_0.1 matrices (default: 0.1).
 
     Returns:
         Tuple[torch.Tensor, torch.Tensor]: Generated matrices A and B.
@@ -297,12 +257,19 @@ def generate_pair_solution_matrices(
         l (int): Number of columns for matrix A and rows for matrix B.
         max_value (int): Maximum value for the matrix elements.
         dtype (torch.dtype): Data type of the matrices.
-        matrix_type (str): Type of matrix to generate. Options: 'random', 'sparse', 'toeplitz', 'diagonal', 'gaussian'.
-        sparsity (float): Sparsity level for sparse matrices (default: 0.1).
+        matrix_type (str): Type of matrix to generate. Options: 'random', 'sparse_0.1', 'toeplitz', 'diagonal', 'gaussian'.
+        sparsity (float): Sparsity level for sparse_0.1 matrices (default: 0.1).
 
     Returns:
         Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: Generated matrices A, B, and their product C.
+
     """
+    if matrix_type == "orthogonal_q_qt":
+        Q = torch.linalg.qr(torch.randn(n, n, dtype=dtype))[0]
+        A = Q
+        B = Q.T
+        C = torch.eye(n, dtype=dtype)
+        return A, B, C
     A, B = generate_pair_matrices(n, l, max_value, dtype, matrix_type, sparsity)
     C = torch.matmul(A, B)
     return A, B, C
@@ -325,8 +292,8 @@ def generate_pair_solution_error_matrices(
         l (int): Number of columns for matrix A and rows for matrix B.
         max_value (int): Maximum value for the matrix elements.
         dtype (torch.dtype): Data type of the matrices.
-        matrix_type (str): Type of matrix to generate. Options: 'random', 'sparse', 'toeplitz', 'diagonal', 'gaussian'.
-        sparsity (float): Sparsity level for sparse matrices (default: 0.1).
+        matrix_type (str): Type of matrix to generate. Options: 'random', 'sparse_0.1', 'toeplitz', 'diagonal', 'gaussian'.
+        sparsity (float): Sparsity level for sparse_0.1 matrices (default: 0.1).
         absolute_error (int): amount of errors in false return
         positive_error (bool): determines if error can only be positiv value
 
@@ -338,7 +305,6 @@ def generate_pair_solution_error_matrices(
     C_error = create_matrix_with_errors_torch(C, absolute_error, max_value, positive_error)
     return A, B, C, C_error
 
-
 def generate_matrix(
     n: int,
     l: int,
@@ -347,125 +313,107 @@ def generate_matrix(
     matrix_type: str,
     sparsity: float,
 ) -> torch.Tensor:
-    """
-    Generates a matrix of a specified type.
-
-    Args:
-        n (int): Number of rows.
-        l (int): Number of columns.
-        max_value (int): Maximum value for the matrix elements.
-        dtype (torch.dtype): Data type of the matrix.
-        matrix_type (str): Type of matrix to generate.
-        sparsity (float): Sparsity level for sparse matrices (default: 0.1).
-
-    Returns:
-        torch.Tensor: Generated matrix.
-    """
-    # Random Matrix: A matrix with random integer values between 0 and max_value.
     if matrix_type == 'random':
-        return torch.randint(0, max_value, (n, l), dtype=dtype)
+        return torch.randint(0, 100, (n, l), dtype=dtype)
 
-    # Sparse Matrix: A matrix with a specified sparsity level (most elements are zero).
-    elif matrix_type == 'sparse':
+    elif matrix_type == 'random_max_value_n':
+        return torch.randint(0, n, (n, l), dtype=dtype)
+
+    elif matrix_type == 'random_max_value_n^2':
+        return torch.randint(0, n * n, (n, l), dtype=dtype)
+
+    elif matrix_type == 'random_signed':
+        return torch.randint(-max_value, max_value + 1, (n, l), dtype=dtype)
+
+    elif matrix_type == 'sparse_0.1':
         matrix = torch.zeros((n, l), dtype=dtype)
         num_non_zero = int(n * l * sparsity)
         indices = torch.randperm(n * l)[:num_non_zero]
-        values = torch.randint(1, max_value, (num_non_zero,), dtype=dtype)
+        values = torch.randint(1, 101, (num_non_zero,), dtype=dtype)  # fixed max = 100
         matrix.view(-1)[indices] = values
         return matrix
 
-    # Toeplitz Matrix: A matrix where each descending diagonal is constant.
+    elif matrix_type == 'sparse_0.1_max_value_size':
+        matrix = torch.zeros((n, l), dtype=dtype)
+        num_non_zero = int(n * l * sparsity)
+        indices = torch.randperm(n * l)[:num_non_zero]
+        values = torch.randint(1, n + 1, (num_non_zero,), dtype=dtype)
+        matrix.view(-1)[indices] = values
+        return matrix
+
+    elif matrix_type == 'sparse_0.1_max_value_n^2':
+        matrix = torch.zeros((n, l), dtype=dtype)
+        num_non_zero = int(n * l * sparsity)
+        indices = torch.randperm(n * l)[:num_non_zero]
+        values = torch.randint(1, n * n + 1, (num_non_zero,), dtype=dtype)
+        matrix.view(-1)[indices] = values
+        return matrix
+
+    elif matrix_type == 'sparse_signed':
+        matrix = torch.zeros((n, l), dtype=dtype)
+        num_non_zero = int(n * l * sparsity)
+        indices = torch.randperm(n * l)[:num_non_zero]
+        values = torch.randint(-max_value, max_value + 1, (num_non_zero,), dtype=dtype)
+        values[values == 0] = 1  # Avoid zero values
+        matrix.view(-1)[indices] = values
+        return matrix
+
     elif matrix_type == 'toeplitz':
-        c = torch.randint(0, max_value, (n,), dtype=dtype)  # First column
-        r = torch.randint(0, max_value, (l,), dtype=dtype)  # First row
-
-        # Ensure the first element of r is the same as c (Toeplitz property)
+        c = torch.randint(0, max_value, (n,), dtype=dtype)
+        r = torch.randint(0, max_value, (l,), dtype=dtype)
         r[0] = c[0]
-
-        # Create Toeplitz matrix using broadcasting
         indices = torch.arange(n).view(-1, 1) - torch.arange(l).view(1, -1)
-        toeplitz_matrix = torch.where(indices >= 0, c[indices], r[-indices])
+        return torch.where(indices >= 0, c[indices], r[-indices])
 
-        return toeplitz_matrix
-
-    # Diagonal Matrix: A matrix with non-zero elements only on the main diagonal.
     elif matrix_type == 'diagonal':
-        diagonal_values = torch.randint(0, max_value, (min(n, l),), dtype=dtype)
-        return torch.diag(diagonal_values)
+        diag = torch.randint(0, max_value, (min(n, l),), dtype=dtype)
+        return torch.diag(diag)
 
-    # Gaussian Matrix: A matrix with elements drawn from a Gaussian (normal) distribution.
-    elif matrix_type == 'gaussian':
-        return torch.round(torch.randn(n, l) * max_value).to(torch.int)
-    # Identity Matrix: A square matrix with 1s on the diagonal and 0s elsewhere.
     elif matrix_type == 'identity':
         return torch.eye(n, l, dtype=dtype)
 
-    # Symmetric Matrix: A square matrix that is equal to its transpose (A = A^T).
     elif matrix_type == 'symmetric':
         A = torch.randint(0, max_value, (n, n), dtype=dtype)
-        return (A + A.T) // 2  # Ensure symmetry
+        return (A + A.T) // 2
 
-    # Triangular Matrix: A matrix with zeros below (upper) or above (lower) the diagonal.
     elif matrix_type == 'triangular':
         A = torch.randint(0, max_value, (n, n), dtype=dtype)
-        return torch.triu(A)  # Upper triangular
+        return torch.triu(A)
 
-    # Orthogonal Matrix: A square matrix with orthonormal columns and rows (Q^T * Q = I).
-    elif matrix_type == 'orthogonal':
-        Q, _ = torch.qr(torch.rand(n, n, dtype=dtype))
-        return Q
+    elif matrix_type == 'vandermonde_poly_n^{2}':
+        p = mm_verification.calculate_primes(n, 1).item()
+        x = torch.randperm(p)[:n]
+        V = torch.empty((n, n), dtype=dtype)
+        for i in range(n):
+            val = 1
+            for j in range(n):
+                V[i, j] = val
+                val = (val * x[i]) % p
+        return V
 
-    # Hankel Matrix: A matrix where each ascending skew-diagonal is constant.
-    elif matrix_type == 'hankel':
-        c = torch.randint(0, max_value, (n,), dtype=dtype)
-        r = torch.randint(0, max_value, (l,), dtype=dtype)
-        return torch.hankel(c, r)
-
-    # Vandermonde Matrix: A matrix where each row is a geometric progression.
-    elif matrix_type == 'vandermonde':
-        max_x = int(max_value ** (1 / (l - 1)))  # Compute the maximum allowed value for x
-        x = torch.randint(1, max_x + 1, (n,), dtype=dtype)  # Ensure x_i <= max_x
+    elif matrix_type == 'ones':
+        max_x = int(max_value ** (1 / (l - 1)))
+        x = torch.randint(1, max_x + 1, (n,), dtype=dtype)
         return torch.vander(x, l)
 
-    # Laplacian Matrix: A matrix representing the graph Laplacian (L = D - A).
     elif matrix_type == 'laplacian':
         A = torch.randint(0, 2, (n, n), dtype=dtype)
-        A = (A + A.T) // 2  # Make it symmetric (undirected graph)
+        A = (A + A.T) // 2
         D = torch.diag(A.sum(dim=1))
         return D - A
 
-    # Hilbert Matrix: A matrix with entries H[i][j] = 1 / (i + j + 1).
     elif matrix_type == 'hilbert':
-        return torch.tensor([[1 / (i + j + 1) for j in range(l)] for i in range(n)], dtype=dtype)
+        return torch.tensor([[1 / (i + j + 1) for j in range(l)] for i in range(n)], dtype=torch.float32)
 
-    # Permutation Matrix: A matrix obtained by permuting the rows of an identity matrix.
     elif matrix_type == 'permutation':
         indices = torch.randperm(n)
         return torch.eye(n, dtype=dtype)[indices]
 
-    # Positive Definite Matrix: A symmetric matrix with all positive eigenvalues.
-    elif matrix_type == 'positive_definite':
-        A = torch.randn(n, n, dtype=dtype)
-        return A @ A.T  # Ensure positive definiteness
-
-    # Stochastic Matrix: A matrix where each row sums to 1 (used in probability).
-    elif matrix_type == 'stochastic':
-        A = torch.rand(n, l, dtype=dtype)
-        return A / A.sum(dim=1, keepdim=True)  # Row normalization
-
-    # Band Matrix: A sparse matrix with non-zero elements confined to a diagonal band.
     elif matrix_type == 'band':
         main_diag = torch.randint(0, max_value, (n,), dtype=dtype)
         off_diag = torch.randint(0, max_value, (n - 1,), dtype=dtype)
-        return torch.diag(main_diag) + torch.diag(off_diag, diagonal=1) + torch.diag(off_diag, diagonal=-1)
+        return torch.diag(main_diag) + torch.diag(off_diag, 1) + torch.diag(off_diag, -1)
 
-    # Cauchy Matrix: A matrix with entries C[i][j] = 1 / (x_i - y_j).
-    elif matrix_type == 'cauchy':
-        x = torch.randint(1, max_value, (n,), dtype=dtype)
-        y = torch.randint(1, max_value, (l,), dtype=dtype)
-        return torch.tensor([[1 / (x[i] - y[j]) for j in range(l)] for i in range(n)], dtype=dtype)
-
-    # Companion Matrix: A matrix associated with a polynomial (used to find its roots).
     elif matrix_type == 'companion':
         coeffs = torch.randint(0, max_value, (n,), dtype=dtype)
         companion = torch.zeros(n, n, dtype=dtype)
@@ -473,7 +421,6 @@ def generate_matrix(
         companion[1:, :-1] = torch.eye(n - 1, dtype=dtype)
         return companion
 
-    # Nilpotent Matrix: A matrix where some power of the matrix is the zero matrix.
     elif matrix_type == 'nilpotent':
         A = torch.zeros(n, n, dtype=dtype)
         for i in range(n - 1):
@@ -528,7 +475,8 @@ def create_matrix_with_errors_torch(
         original_value = matrix_with_errors[row_index, col_index].item()
         while True:
             if only_positive:
-                error_value = random.randint(0, max_value)
+                error_value = random.randint(1, max_value)
+
             else:
                 error_value = random.randint(-max_value, max_value)
 
@@ -542,6 +490,49 @@ def create_matrix_with_errors_torch(
 
 
 
+
+def matrix_density(M):
+    return (M != 0).sum().item() / M.numel()
+
+def clamp_matrix(M, max_val):
+    """Ensure all entries are within [-max_val, max_val]"""
+    return torch.clamp(M, -max_val, max_val)
+
+def generate_unimodular_matrix(n, min_density, max_val):
+    """Generate a dense, bounded, unimodular matrix using row operations."""
+    ops = max(1, int(n * n * min_density))
+    while True:
+        U = torch.eye(n, dtype=torch.int32)
+        for _ in range(ops):
+            i, j = random.sample(range(n), 2)
+            k = random.randint(-max_val, max_val)
+            if k != 0:
+                U[i] += k * U[j]
+        if matrix_density(U) >= min_density:
+            return clamp_matrix(U, max_val)
+
+def generate_diagonal(n, nonzeros, max_val):
+    """Generate a sparse_0.1 diagonal matrix with exactly `nonzeros` nonzero entries."""
+    diag = [random.randint(1, max_val) if i < nonzeros else 0 for i in range(n)]
+    random.shuffle(diag)
+    return torch.diag(torch.tensor(diag, dtype=torch.int32))
+
+def generate_triple_for_osmm(n, nonzeros, max_val, min_density=0.8):
+    """
+    Generate A = U·D, B = V with dense U, V and sparse_0.1 D such that C = AB is sparse_0.1.
+    All over ℤ (integers), for output-sensitive matrix multiplication testing.
+    """
+    assert 0 < nonzeros <= n
+
+    D = generate_diagonal(n, nonzeros, max_val)
+    U = generate_unimodular_matrix(n, min_density, max_val)
+    V = generate_unimodular_matrix(n, min_density, max_val)
+
+    A = torch.matmul(U, D)         # Dense × sparse_0.1
+    B = V                          # Dense
+    C = torch.matmul(A, B)         # Final sparse_0.1 product
+
+    return A, B, C
 
 
 

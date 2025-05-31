@@ -1,8 +1,6 @@
-import torch
 import random
 
-from approximation import compute_summary, reconstruct_approximation_matrix
-from approximationGroup import approximation
+from approx.approximation import compute_summary, reconstruct_approximation_matrix
 
 
 def relative_error(approx, true):

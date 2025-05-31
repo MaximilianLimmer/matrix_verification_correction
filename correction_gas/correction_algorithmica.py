@@ -81,7 +81,7 @@ def correct(A, B, C, c, k, primes, iteration_timings):
 
 
 def construct_matrices(n, p):
-    v_vectors = torch.zeros((p, n), dtype=torch.int32)
+    v_vectors = torch.zeros((p, n), dtype=torch.float64)
     for j in range(n):
         v_vectors[j % p, j] = 1
     return [v_vectors[i] for i in range(p)]

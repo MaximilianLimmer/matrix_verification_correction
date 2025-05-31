@@ -28,6 +28,7 @@ def approximation(A, B, b):
 
     t1 = time.perf_counter()
     P = find_primes_for_task(b, n * l)
+    print(P)
     timings["find_primes"] = time.perf_counter() - t1
 
     t2 = time.perf_counter()
@@ -203,10 +204,11 @@ def compute_group(A, B, primes, n, l):
     for i in range(l):
         a = A[:, i]
         b = B[i, :]
-
+        print(i)
         for j in range(len(primes)):
 
             p = primes[j]
+
 
             t1 = time.perf_counter()
             coe_p_ab_dash = compute_polynomial_contribution(a, b, p)

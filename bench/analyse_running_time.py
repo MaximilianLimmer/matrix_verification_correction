@@ -6,7 +6,7 @@ from matplotlib.ticker import LogLocator, LogFormatter
 
 import generate_matrices
 
-from mm_verification import verification_torch
+from fme_correct_verify.mm_verification import verification_torch
 
 
 def measure_time(func, *args, **kwargs):

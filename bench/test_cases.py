@@ -1,5 +1,5 @@
 import pyperf
-import mm_verification
+from fme_correct_verify import mm_verification
 import torch
 import os
 
@@ -84,7 +84,7 @@ def save_matrices(matrix_type, size, sparsity, num_matrices, max_value, dtype=to
     Generate and save matrices for a specific type, size, and sparsity.
     """
     for i in range(num_matrices):
-        if matrix_type == 'sparse':
+        if matrix_type == 'sparse_0.1':
             A, B, C = generate_pair_solution_matrices(size, size, max_value, dtype, matrix_type, sparsity)
         else:
             A, B, C = generate_pair_solution_matrices(size, size, max_value, dtype, matrix_type)
@@ -104,14 +104,14 @@ def save_matrices(matrix_type, size, sparsity, num_matrices, max_value, dtype=to
 def generated_matrix_test_verification(n, c, t):
     matrix_types = [
         "random",
-        "sparse",
+        "sparse_0.1",
         "toeplitz",
         "diagonal",
         "gaussian",
         "identity",
         "symmetric",
         "triangular",
-        "vandermonde",
+        "ones",
         "laplacian",
         "hilbert",
         "permutation",

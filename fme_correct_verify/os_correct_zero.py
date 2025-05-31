@@ -1,13 +1,11 @@
 import time
 
 import torch
-from numpy.ma.core import nonzero
-from numpy.matrixlib.defmatrix import matrix
 
 import number_theory
-from all_zeroes import construct_evaluate, all_zeroes, compute_polynomial, check_g, compute_omega, calculate_single_row
-from mm_verification import change_to_verification_form_torch, matrix_to_list
-from os_matrix_multiplication import updated_values_and_list
+from fme_correct_verify.all_zeroes import construct_evaluate, compute_polynomial, check_g, compute_omega, calculate_single_row
+from fme_correct_verify.mm_verification import change_to_verification_form_torch, matrix_to_list
+
 
 # List which contains all the sub-matrices which have nonzero elements
 # The last is always the smallest, so reversed logic to the pseudo code
@@ -165,7 +163,7 @@ class MatrixProduct:
         """
         if self.children is None:
             global t
-            new_granularity = min(self.rows() // 2, t)
+            new_granularity = min(self.rows() // 2, t, self.granularity)
 
             mid_row = self.rows() // 2
             mid_col = self.column() // 2
@@ -208,6 +206,8 @@ def os_matrix_multiplication_mod_p(A, B, number_of_non_zeroes, prime):
     n = A.shape[0]
     a_l = A.shape[1]
 
+
+
     # Set the global variables for the prime and calculate and set the primitive root and number of non-zeroes
     global t
     t = number_of_non_zeroes
@@ -220,6 +220,7 @@ def os_matrix_multiplication_mod_p(A, B, number_of_non_zeroes, prime):
     primitive_root = number_theory.find_primitive_root(p)
     omega = primitive_root
 
+    # TODO this is parameter for giving a matrix
     # initialize C as zero matrix
     C = torch.zeros((n, n), dtype=torch.int32)
 
@@ -264,6 +265,7 @@ def os_matrix_multiplication_mod_p(A, B, number_of_non_zeroes, prime):
     timings["calculate_nonzero"] = 0
     timings["update_values_and_list"] = 0
 
+    counter = 0
     # while there is no interval with a nonzero
     while L:
 
@@ -278,7 +280,8 @@ def os_matrix_multiplication_mod_p(A, B, number_of_non_zeroes, prime):
         timings["find_nonzero"] += time.perf_counter() - t2
 
         t3 = time.perf_counter()
-
+        print(counter)
+        counter += 1
         # calculate the non-zero element for the index i, j for the matrix C and by this for A_n
         # We move it by n because C got concordinate onto A
 
@@ -343,7 +346,8 @@ def find_nonzero(matrix_product: MatrixProduct, parent_i, parent_j):
             return find_nonzero(child, parent_i, parent_j)
 
     # If no child has nonzero test values, double granularity and retry
-    matrix_product.granularity *= 2
+    #matrix_product.granularity *= 2
+    matrix_product.granularity = min(2 * matrix_product.granularity, t, matrix_product.rows())
     return find_nonzero(matrix_product, parent_i, parent_j)
 
 
@@ -407,14 +411,16 @@ def compute_test_values(matrix_product):
 
 
         # uses the all zero method construct_evaluate to compute through FME the values required
+
+
         q_value, r_value = construct_evaluate(matrix_product.matrix_A,
-                                              matrix_product.matrix_B,
-                                              matrix_product.column(),
-                                              omegas_q[matrix_product.actual_granularity:matrix_product.granularity],
-                                              omegas_r[matrix_product.actual_granularity:matrix_product.granularity],
-                                              matrix_product.actual_granularity,
-                                              matrix_product.granularity - matrix_product.actual_granularity,
-                                              p)
+                                             matrix_product.matrix_B,
+                                             matrix_product.column(),
+                                            omegas_q[matrix_product.actual_granularity:matrix_product.granularity],
+                                            omegas_r[matrix_product.actual_granularity:matrix_product.granularity],
+                                           matrix_product.actual_granularity,
+                                           matrix_product.granularity - matrix_product.actual_granularity,
+                                           p)
 
 
         # get the already calculated test values and combines them with the already existing

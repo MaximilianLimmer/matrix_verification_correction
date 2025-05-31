@@ -1,7 +1,6 @@
 from random import randint
 import sys
 import torch
-from numpy.random import random
 from sympy.polys.factortools import fmpz_poly
 import cProfile, pstats
 
@@ -9,7 +8,7 @@ import approximationGroup
 from approximationGroup import construct_pa, construct_pb, div_mod_operation_b, zero_out_elements_final, \
     calculate_bit_list, find_index, compute_group, check_candidates
 from generate_matrices import create_matrix_with_errors_torch, generate_pair_solution_matrices
-from mm_verification import change_to_verification_form_torch
+from fme_correct_verify.mm_verification import change_to_verification_form_torch
 from number_theory import find_primes_for_task
 
 
@@ -44,7 +43,7 @@ def test_approximate_exact(n):
     B = torch.randint(1, n, size=(n, n))
     C = torch.matmul(A, B)
 
-    output = approximationGroup.approximation(A, B, n**n)
+    output = approximationGroup.approximation(A, B, n ** n)
     assert torch.equal(C, output)
     return True
 

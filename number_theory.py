@@ -193,31 +193,61 @@ def find_primitive_root(p):
 
 def find_primes_for_task(b, N):
     """
-    Finds the first x primes greater than b, where x is estimated based on N.
-    Uses a PyTorch-based Sieve of Eratosthenes.
+    Return exactly x = ceil((b - 1) * log_b N) + 1 primes strictly greater than b.
     """
-    # Compute the number of primes needed (improved heuristic)
-    x = max(math.ceil(math.log(N + 1) * 1.2), b)
+    def sieve(limit):
+        is_prime = torch.ones(limit + 1, dtype=torch.bool)
+        is_prime[:2] = False
+        for i in range(2, int(limit ** 0.5) + 1):
+            if is_prime[i]:
+                is_prime[i*i : limit+1 : i] = False
+        return torch.nonzero(is_prime, as_tuple=True)[0]
 
-    # Better upper bound for prime search
-    upper_limit = max(100, int(1.5 * x * math.log(x + 2)))
+    if b <= 1:
+        return torch.tensor([2])  # edge case
 
-    # Sieve of Eratosthenes using PyTorch
-    is_prime = torch.ones(upper_limit + 1, dtype=torch.bool)
-    is_prime[:2] = False  # 0 and 1 are not prime
+    # Required number of primes
+    x = math.ceil((b - 1) * math.log(N) / math.log(b)) + 1
 
-    for i in range(2, int(math.sqrt(upper_limit)) + 1):
-        if is_prime[i]:
-            is_prime[i * i : upper_limit + 1 : i] = False  # Mark multiples as False
+    upper = int(max(100, 3 * x * math.log(x + 10)))
 
-    # Extract prime indices
-    primes = torch.nonzero(is_prime, as_tuple=True)[0]
+    while True:
+        primes = sieve(upper)
+        primes = primes[primes > b]  # filter AFTER sieving
+        if len(primes) >= x:
+            return primes[:x]  # slice only AFTER filtering
+        upper *= 2
 
-    # Select only primes greater than b
-    primes = primes[primes > b]
+def find_primitive_root_exhaustive(p):
+    """
+    Find a primitive root modulo prime p by exhaustive subgroup removal.
+    Runs in O(p log p) field operations.
+    """
 
-    # Ensure we return exactly x primes
-    if len(primes) < x:
-        return find_primes_for_task(b, N * 2)  # Expand search range dynamically
+    # L[i] == True means i is still “unencountered”
+    L = [True] * p
+    L[0] = False  # exclude zero
+    last = None
 
-    return primes[:x]
+    def next_alpha():
+        for i in range(1, p):
+            if L[i]:
+                return i
+        return None
+
+    while True:
+        alpha = next_alpha()
+        if alpha is None:
+            break
+        # build subgroup <alpha>
+        subgroup = {alpha}
+        x = (alpha * alpha) % p
+        while x not in subgroup:
+            subgroup.add(x)
+            x = (x * alpha) % p
+        # remove entire subgroup from L
+        for y in subgroup:
+            L[y] = False
+        last = alpha
+
+    return last

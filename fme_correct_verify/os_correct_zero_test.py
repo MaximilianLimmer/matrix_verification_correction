@@ -1,12 +1,9 @@
-from PIL.DdsImagePlugin import item1
-
-import mm_verification
-import os_correct_zero
-from generate_matrices import generate_pair_solution_matrices, generate_pair_matrices, \
+from fme_correct_verify import mm_verification, os_correct_zero
+from generate_matrices import generate_pair_matrices, \
     generate_pair_solution_error_matrices
 import torch
 
-from mm_verification import calculate_primes
+from fme_correct_verify.mm_verification import calculate_primes
 
 
 def test_os_correct_zero(n, l, max_value, dtype, matrix_type, sparsity, t):

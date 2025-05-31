@@ -10,11 +10,11 @@ from sympy.benchmarks.bench_meijerint import timings
 
 
 def reconstruct_approximation_matrix(S, n):
-    C = torch.zeros((n, n))  # Initialize n×n matrix with zeros
-    for x in S:
-        value, (row, col) = x
-
-        # Ensure indices are valid
+    print(len(S))
+    C = torch.zeros((n, n))
+    for value, flat_index in S:
+        row = flat_index[0] % n
+        col = flat_index[1] %  n
         if 0 <= row < n and 0 <= col < n:
             C[row, col] = value
         else:
@@ -24,7 +24,8 @@ def reconstruct_approximation_matrix(S, n):
 
 def compute_summary(A, B, b):
 
-    t0 = time.perf_counter()
+
+
     timings = {}
     timings["sorting"] = 0
     timings["find_b_plus_largest_elements"] = 0
@@ -32,10 +33,12 @@ def compute_summary(A, B, b):
     timings["merge"] = 0
 
     n = A.size(0)
-    row_order = ordered_list(A.T, n)
-    column_order = ordered_list(B, n)
+    t_a = time.perf_counter()
+    row_order = ordered_list_numpy(A.T)
+    column_order = ordered_list_numpy(B)
+    timings["pre_sort"] = time.perf_counter() - t_a
     S = []
-
+    t0 = time.perf_counter()
     for i in range(n):
 
         u = row_order[i*n:(i+1)*n]
@@ -48,6 +51,7 @@ def compute_summary(A, B, b):
 
         t2 = time.perf_counter()
         L_and_plus_one= KMaxCombinations(u_sorted, v_sorted , b + 1)
+
         timings["find_b_plus_largest_elements"] += time.perf_counter() -t2
 
         c = L_and_plus_one.pop()[0]
@@ -56,6 +60,7 @@ def compute_summary(A, B, b):
 
         t3 = time.perf_counter()
         L = positional_sort(L, n)
+        print(L)
         timings["positional_sort"] += time.perf_counter() - t3
 
         t4 = time.perf_counter()
@@ -67,19 +72,20 @@ def compute_summary(A, B, b):
         timings["merge"] += time.perf_counter() - t4
 
         t5 = time.perf_counter()
-        positional_sort(S, n)
+        #positional_sort(S, n)
         timings["positional_sort"] += time.perf_counter() - t5
 
         L = []
     total_time = time.perf_counter() - t0
+    print(total_time)
+    print(timings)
     return S, total_time, timings
 
 
 def merge_lists(S, L):
-    # Convert S into a dictionary {coordinate: value}
+
     S_dict = {coord: val for val, coord in S}
 
-    # Iterate through L and update values in S
     for val, coord in L:
         if coord in S_dict:
             S_dict[coord] += val  # Add values when coordinates match
@@ -127,6 +133,7 @@ def KMaxCombinations(a, b, k):
 
     n = len(a)
     output = []
+
 
 
     # Using a max-heap.
@@ -215,13 +222,10 @@ def find_b_largest_entries(u, v, c, n):
     return L
 
 
-def ordered_list(matrix, n):
-    list_order = []
-    for i in range(matrix.size(0)):
-        for j in range(matrix.size(1)):
-            list_order.append((matrix[i, j].item(), j))
-
-    return list_order
+def ordered_list_numpy(matrix):
+    mat_np = matrix.numpy().flatten()
+    indices = np.arange(mat_np.size)
+    return list(zip(mat_np.tolist(), indices.tolist()))
 
 def list_log_negate(u):
     output = []

@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-import all_zeroes
+from fme_correct_verify import all_zeroes
 import number_theory
 
 
@@ -11,10 +11,10 @@ def change_to_verification_form(A, B, C):
 
 
 def change_to_verification_form_torch(A, B, C):
-    I = -1 * torch.eye(B.shape[1], dtype=torch.int32)
+    I = -1 * torch.eye(B.shape[1], dtype=torch.int64)
     AC = torch.hstack((A, C))
     BI = torch.vstack((B, I))
-    return AC, BI
+    return AC.to(dtype=torch.int64), BI.to(dtype=torch.int64)
 
 def calculate_primes(n, d):
     lower_limit = (n ** 2) + 1
@@ -25,6 +25,12 @@ def calculate_primitive_roots(primes):
     roots = []
     for i in primes:
         roots.append(number_theory.find_primitive_root(i.item()))
+    return roots
+
+def calculate_primitive_roots_poly(primes):
+    roots = []
+    for i in primes:
+        roots.append(number_theory.find_primitive_root_exhaustive(i.item()))
     return roots
 
 def verification(A, B, C, c, t, primes, omegas):
@@ -46,13 +52,19 @@ def verification(A, B, C, c, t, primes, omegas):
 
     if len(omegas) == 0:
         omega_start = time.perf_counter()
-        omegas = calculate_primitive_roots(primes)
+        omegas = calculate_primitive_roots_poly(primes)
         timing_meta["omega_calc"] = time.perf_counter() - omega_start
     else:
         timing_meta["omega_calc"] = 0.0
 
     A_list = matrix_to_list(A_n, l, True)
     B_list = matrix_to_list(B_n, l, False)
+
+    #A_list = A_n.numpy()
+    #B_list = B_n.numpy()
+
+
+
 
     all_timings = []
     total_start = time.perf_counter()
@@ -62,11 +74,11 @@ def verification(A, B, C, c, t, primes, omegas):
         w = omegas[i]
 
         iter_start = time.perf_counter()
-        result, timing = all_zeroes.all_zeroes(A_list, B_list, p, w, t, n, l)
+        result = all_zeroes.all_zeroes(A_list, B_list, p, w, t, n, l)
         iter_time = time.perf_counter() - iter_start
 
-        timing["iteration_total"] = iter_time
-        all_timings.append(timing)
+        #timing["iteration_total"] = iter_time
+        #all_timings.append(timing)
 
         if not result:
             total_time = time.perf_counter() - total_start

@@ -7,12 +7,12 @@ import torch
 import os
 from typing import Callable, List, Any
 
-import correction_algorithmica
+from correction_gas import correction_algorithmica
 import generate_matrices
-import analyse_running_time
-from correction_algorithmica import correct_speedUp, primes_correction
+from bench import analyse_running_time
+from correction_gas.correction_algorithmica import correct_speedUp, primes_correction
 
-from mm_verification import calculate_primes, calculate_primitive_roots, verification_torch
+from fme_correct_verify.mm_verification import calculate_primes, calculate_primitive_roots, verification_torch
 
 
 def generate_and_save(
@@ -196,7 +196,7 @@ def benchmarks_verification_change_max_value(function1, sizes, d, c, t, precalcu
             C = C.to(torch.int64)
 
             time += analyse_running_time.measure_time(function1, A, B,
-                                                      C, c-1, int(math.sqrt(x)), primes[0], primitive_roots[0])
+                                                      C, c - 1, int(math.sqrt(x)), primes[0], primitive_roots[0])
             print(time)
             gc.collect()
 
@@ -322,7 +322,7 @@ def correction_c_test(size, c, k, amount_of_runs, load):
         difference = abs(torch.sub(C, C_error))
         print(difference.max())
         print(primes)
-        C_out = correction_algorithmica.correct_speedUp( A, B, C_input, c, k, primes)
+        C_out = correction_algorithmica.correct_speedUp(A, B, C_input, c, k, primes)
         n, m = C.shape
         print(m,n)
         print(C_out)
