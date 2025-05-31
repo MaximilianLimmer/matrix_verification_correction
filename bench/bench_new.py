@@ -364,7 +364,7 @@ def benchmark_all_os_mm(c, t_fn, primes=[], output_file="bench_os_mm_all_zero_t=
                         print(total_time)
                         print(timing_data)
                         match = torch.equal(C_sol, t_sol)
-
+                        assert match
                         writer.writerow([
                             matrix_type, u, size, t_val, f"{total_time:.6f}",
                             f"{timing_data.get('first_check', 0):.6f}",
