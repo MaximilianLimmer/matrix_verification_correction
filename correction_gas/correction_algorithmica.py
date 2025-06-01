@@ -53,30 +53,36 @@ def primes_correction(c, k, n):
 
 
 def correct(A, B, C, c, k, primes, iteration_timings):
-    n = np.shape(A)[0]
-    #C_here = C.clone()
+    n = A.shape[0]
 
     for p in primes:
-
-        column_arrangement = time.perf_counter()
+        t0 = time.perf_counter()
         v_vectors = construct_matrices(n, p)
-        iteration_timings["column_arrangement"] += time.perf_counter() - column_arrangement
+        iteration_timings["column_arrangement"] += time.perf_counter() - t0
 
         for i in range(p):
-
             vector_time = time.perf_counter()
             B_v = torch.matmul(B, v_vectors[i])
             left_side = torch.matmul(A, B_v)
             right_side = torch.matmul(C, v_vectors[i])
             iteration_timings["vector_calculation"] += time.perf_counter() - vector_time
 
-            correction_time = time.perf_counter()
-            mask = left_side != right_side
-            C[mask] = torch.matmul(A[mask], B)
-            iteration_timings["matrix_vector_calc"] += time.perf_counter() - correction_time
+            error_rows = (left_side != right_side).nonzero(as_tuple=True)[0]
+            if error_rows.numel() == 0:
+                continue
 
+            cols = (v_vectors[i] == 1).nonzero(as_tuple=True)[0]
+
+            t2 = time.perf_counter()
+            A_err = A[error_rows, :]
+            B_sub = B[:, cols]
+            corrected = torch.matmul(A_err, B_sub)
+            for idx, row in enumerate(error_rows):
+                C[row, cols] = corrected[idx]
+            iteration_timings["matrix_vector_calc"] += time.perf_counter() - t2
 
     return C, iteration_timings
+
 
 
 
