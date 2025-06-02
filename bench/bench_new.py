@@ -384,7 +384,7 @@ def benchmark_all_os_mm(c, t_fn, primes=[], output_file="bench_os_mm_all_zero_t=
 def benchmark_correct_speedUp(c, k_fn, output_file="bench_correct_sqrt_big.csv"):
 
 
-    BASE_DIR = "../data_test_int"
+    BASE_DIR = "data_test_int"
     TYPES = ["band", "diagonal", "identity", "nilpotent", "ones",
              "permutation", "random", "random_max_value_n", "random_signed",
              "sparse_0.1", "sparse_signed", "symmetric", "toeplitz", "triangular",
@@ -407,11 +407,14 @@ def benchmark_correct_speedUp(c, k_fn, output_file="bench_correct_sqrt_big.csv")
             print(matrix_type)
             for u in US:
                 dir_path = os.path.join(BASE_DIR, matrix_type, u)
+                print(dir_path)
                 if not os.path.isdir(dir_path):
                     continue
 
                 files = os.listdir(dir_path)
-                sizes =  [4096*2]
+                sizes = [8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096]
+
+
 
                 for size in sizes:
                     print(size)
@@ -432,7 +435,7 @@ def benchmark_correct_speedUp(c, k_fn, output_file="bench_correct_sqrt_big.csv")
 
                     result, total_time, timings, iteration_timings = correct_speedUp(A, B, C_error, c=c, k=k_val, primes=[])
                     # Verifies correctness of solution
-                    #
+                    assert torch.equal(C, result)
                     assert torch.equal(test_copies, result)
                     RESULTS.append({
                         "type": matrix_type,
